@@ -1,15 +1,17 @@
+# based on PLD Linux spec git://git.pld-linux.org/packages/.git
 Summary:	LADSPA SDK example plugins
 Name:		ladspa
 Version:	1.13
-Release:	4
+Release:	5
 License:	LGPL
 Group:		Libraries
 Source0:	http://www.ladspa.org/download/%{name}_sdk_%{version}.tgz
 # Source0-md5:	671be3e1021d0722cadc7fb27054628e
-Patch0:		%{name}-mkdirhier.patch
+Patch0:		%{name}-fix-memleak-in-plugin-scanning.patch
+Patch1:		%{name}-fallback-path.patch
 URL:		http://www.ladspa.org/
-BuildRequires:	perl-base
 BuildRequires:	libstdc++-devel
+BuildRequires:	sed
 Requires:	%{name}-common
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
@@ -47,12 +49,15 @@ and plugin is contained within copious comments within the ladspa.h
 header file.
 
 %prep
-%setup -q -n %{name}_sdk
-%patch0 -p1
+%setup -qn %{name}_sdk
+%patch0 -p0
+cd src
+%{__sed} -e "s|@LIBDIR@|%{_libdir}|" %{PATCH1} | patch -p1 -s
+cd ..
 
-cd doc
-#fix links to the header file in the docs
-perl -pi -e "s!HREF=\"ladspa.h.txt\"!href=\"file:///usr/include/ladspa.h\"!" *.html
+# fix links to the header file in the docs
+%{__sed} -i -e 's|HREF=\"ladspa.h.txt\"|href=\"file:///usr/include/ladspa.h\"|' doc/*.html
+%{__sed} -i -e 's|mkdirhier|/usr/bin/install -d|' src/makefile
 
 %build
 %{__make} -C src targets \
@@ -64,7 +69,6 @@ rm -rf $RPM_BUILD_ROOT
 install -d $RPM_BUILD_ROOT%{_datadir}/ladspa/rdf
 
 %{__make} -C src install \
-	MKDIRHIER="/usr/bin/install -d"				\
 	INSTALL_PLUGINS_DIR=$RPM_BUILD_ROOT%{_libdir}/ladspa	\
 	INSTALL_INCLUDE_DIR=$RPM_BUILD_ROOT%{_includedir}	\
 	INSTALL_BINARY_DIR=$RPM_BUILD_ROOT%{_bindir}
